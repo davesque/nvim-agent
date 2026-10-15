@@ -1,5 +1,6 @@
 ---
 name: neovim
+license: Apache-2.0
 description: Work with the user's running Neovim editor over its RPC socket. Use when the user refers to what is open in their editor (current file, cursor, unsaved changes, diagnostics), asks you to show or run something in Neovim, or when you edit files they have open in Neovim and the editor should pick up your changes. Also use when running inside a Neovim :terminal ($NVIM is set).
 ---
 

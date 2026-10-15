@@ -30,3 +30,7 @@ make check
 ```
 
 runs lint and the test suite. Tests start their own headless Neovim instances and never touch a running editor.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).
