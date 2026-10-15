@@ -1,24 +1,29 @@
 # Display and annotate a call stack
 
 Use this workflow when the user wants to follow a source-level call chain in
-Neovim. It displays numbered call sites, URL/configuration decisions, and the
-failure point without inserting comments into source files. These are source
-annotations, not a captured runtime stack; label inferred branches accordingly.
+Neovim. Highlight calls and add inline notes that explain how execution reaches
+a chosen operation or result, without inserting comments into source files.
+Distinguish a source-derived path from an observed runtime trace, and label
+conditional or inferred edges accordingly.
 
 ## Arrange the source
 
 1. Inspect `nv state` and read the relevant buffers with `nv read`. Trace the
-   actual caller-to-callee expressions, including construction and initialization
-   that can fail before the intended operation runs.
+   actual caller-to-callee expressions between the requested starting point and
+   endpoint. Include indirect calls, callbacks, or initialization when they are
+   part of that path; identify unresolved targets rather than guessing.
 2. If the user requests an ordered view, arrange one file per tab from entrypoint
-   to failure site. Use `nv ex 'tabedit /absolute/path/to/file'` for missing views
+   to the chosen endpoint. Use `nv ex 'tabedit /absolute/path/to/file'` for missing views
    and `nv lua` with `nvim_list_tabpages`, `nvim_tabpage_list_wins`, and
    `nvim_win_get_buf` to inspect existing tabs. Reuse existing views where possible.
    Do not close unrelated tabs or change the layout unless requested. Never use
    forced close commands to discard unsaved buffers.
-3. Number the call sites in execution order, even when several occur in one file.
-   Add separate notes for configuration selection, normalization, and exception
-   propagation back to the caller's logging statement.
+3. Number the call sites along the selected path, even when several occur in
+   one file. Explain branches, argument transformations, or return paths only
+   where they help connect the steps. For async or concurrent paths, describe
+   scheduling and callback relationships without implying a single synchronous
+   stack. For repeated or recursive calls, identify the relevant occurrence.
+   Error and exception annotations are optional, for failure investigations.
 
 Run commands through this skill's absolute `scripts/nv` path. The examples below
 use `<skill-dir>` as a placeholder. Keep the same explicit socket or pane selector
@@ -29,20 +34,21 @@ on each call when several editors exist.
 Use `nv lua` to create buffer extmarks in a dedicated named namespace. Each mark
 combines a line highlight with end-of-line virtual text. Suggested built-in groups:
 
-| Meaning                       | Highlight group   |
-| ----------------------------- | ----------------- |
-| Call to the next frame        | `DiffText`        |
-| Configuration or URL decision | `Search`          |
-| Newly added mitigation        | `DiffAdd`         |
-| Original exception site       | `DiagnosticError` |
-| Explanatory note text         | `Comment`         |
+| Meaning                                 | Highlight group   |
+| --------------------------------------- | ----------------- |
+| Call to the next step                   | `DiffText`        |
+| Relevant branch or value transformation | `Search`          |
+| Chosen endpoint or result               | `Visual`          |
+| Changed behavior, when comparing edits  | `DiffAdd`         |
+| Error site, when tracing a failure      | `DiagnosticError` |
+| Explanatory note text                   | `Comment`         |
 
 Colors depend on the user's theme. Keep notes short enough to remain useful in
-narrow windows. Namespace names should identify the investigation, such as
+narrow windows. Namespace names should identify the walkthrough, such as
 `agent_example_callstack`; reuse that name when refreshing the same annotations.
 
 This example assumes `/tmp/stack-example/entry.py` and
-`/tmp/stack-example/client.py` are already loaded. Replace the paths, anchors, and
+`/tmp/stack-example/worker.py` are already loaded. Replace the paths, anchors, and
 notes with the source being explained. Anchors are literal substrings and must
 match exactly one line within their optional 1-based bounds. Narrow the bounds or
 use a more distinctive expression when a file repeats the same call.
@@ -51,12 +57,12 @@ use a more distinctive expression when a file repeats the same call.
 <skill-dir>/scripts/nv lua - <<'LUA'
 local namespace = vim.api.nvim_create_namespace('agent_example_callstack')
 local specs = {
-  {path='/tmp/stack-example/entry.py', anchor='client.publish()',
-   group='DiffText', note='1: entrypoint -> publish'},
-  {path='/tmp/stack-example/client.py', anchor='self.load_schema()',
-   group='DiffText', note='2: publish -> load_schema'},
-  {path='/tmp/stack-example/client.py', anchor='raise RuntimeError(',
-   group='DiagnosticError', note='3: original failure site'},
+  {path='/tmp/stack-example/entry.py', anchor='worker.process()',
+   group='DiffText', note='1: entrypoint -> process'},
+  {path='/tmp/stack-example/worker.py', anchor='self.transform()',
+   group='DiffText', note='2: process -> transform'},
+  {path='/tmp/stack-example/worker.py', anchor='return result',
+   group='Visual', note='3: transform returns the result'},
 }
 local resolved, buffers = {}, {}
 -- Resolve every anchor before replacing any existing annotations.
@@ -77,7 +83,7 @@ for _, spec in ipairs(specs) do
   table.insert(resolved, {buf=buf, row=matches[1]-1, spec=spec})
   buffers[buf] = true
 end
--- Clear only this investigation's marks, including files dropped from the trace.
+-- Clear only this walkthrough's marks, including files dropped from the trace.
 for _, buf in ipairs(vim.api.nvim_list_bufs()) do
   if vim.api.nvim_buf_is_loaded(buf) then
     vim.api.nvim_buf_clear_namespace(buf, namespace, 0, -1)
@@ -117,16 +123,16 @@ buffers are recreated.
 
 Follow the skill's disk-edit and `nv reload` workflow first. Extmarks can move with
 buffer edits, but their position alone does not prove that a note still describes
-the correct statement. In this investigation, an import and a normalization block
-shifted the call sites while old notes remained on unrelated lines after reload.
+the correct statement. Insertions, deletions, and reloads can leave annotations
+attached to unrelated lines.
 
 Read the current buffers, resolve the anchors again, then rebuild the namespace.
-Update the wording too: a note saying a metadata URL is used verbatim becomes
-misleading once a later step normalizes its path. Preserve the original failure
-site, and annotate the mitigation before the request that it changes. Verify all
-frames, including unchanged caller files, against their current buffer contents.
+Recheck each note's meaning as well as its position: edits can change the callee,
+branch condition, inputs, or result. Revise the path and numbering if the chain
+changes. Verify all annotated files against their current buffer contents,
+including caller files that were not edited.
 
-To remove this investigation's annotations without altering other decorations:
+To remove this walkthrough's annotations without altering other decorations:
 
 ```sh
 <skill-dir>/scripts/nv lua - <<'LUA'
