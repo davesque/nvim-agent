@@ -20,7 +20,9 @@
 - Without `--listen`, every nvim still listens on a default socket under `$TMPDIR/nvim.$USER/<random>/nvim.<pid>.0`. **Verified.**
 - On 0.12 the TUI is a separate process from the server: the pid in the socket name belongs to the server, which is a child of the `nvim` process tmux launched. **Verified** (pane pid 38597 → TUI `nvim` → server 38598 → `nvim.38598.0`).
 - The server inherits the launching shell's environment, so `vim.env.TMUX_PANE` identifies which tmux pane an instance lives in. **Verified.** This is the simplest way to map "the nvim in pane %9" to a socket: enumerate sockets, ask each for `TMUX_PANE`.
-- `$NVIM` is set inside `:terminal` buffers and child processes of nvim (**Recalled**), which lets an agent running inside nvim's terminal find its parent editor with no discovery at all.
+- `$NVIM` is set for `:terminal` jobs and names the server socket, but is **not** set for `vim.fn.system()` children. **Verified** (`probes/nvim_env.lua`). An agent running inside nvim's terminal can find its parent editor with no discovery at all; agents started any other way cannot rely on it.
+- Headless `nvim -l` clients also listen on a default socket. It is removed on normal exit and SIGTERM, but left behind after `os.exit()` or SIGKILL, so discovery can find stale sockets. `vim.fn.serverstop(vim.v.servername)` at client startup removes it. **Verified** (`probes/stale_socket.sh`, `probes/client_timeout.lua`).
+- Plugins can open extra sockets for the same server in the same directory (seen: `fzf-lua.<ts>.<pid>.0`). **Verified** (`ls` of the socket dir).
 
 ## Client options (no dependencies needed)
 
@@ -52,15 +54,26 @@ All **Verified** unless noted:
 | Hit-enter prompt ("Press ENTER") | `r`, **blocking** | **hang until the user dismisses the prompt** |
 
 - During a hit-enter prompt, `nvim_get_mode`, `nvim_get_api_info`, and `nvim_input` are still answered immediately; `nvim_buf_line_count` and `nvim_exec_lua` are not. **Verified.** `--remote-expr` hangs too, since it goes through `nvim_eval`.
-- Requests from a client that disconnected while waiting were **not** executed after the prompt cleared (a `vim.g` marker set by the timed-out request stayed `nil`). **Verified** for one case; worth re-testing before relying on it.
+- A request queued behind the prompt is **dropped if its client disconnects** (raw socket closed: 0/5 ran; `nvim -l` client killed by `timeout`: 0/5 ran) and **run after the prompt clears if the client stays connected** (5/5 ran, and the late response arrived). **Verified** (`probes/dropped.py`). A client that times out must close its connection.
+- Multi-line output from a request (`print` or `vim.notify` in `nvim_exec_lua`, or `nvim_exec2` with `output = false`) raises a hit-enter prompt and hangs that same request. `nvim_exec2(..., {output = true})` captures the output instead, including for `:lua` code. **Verified** (`probes/messages.py`).
+- A headless nvim with no UI never shows the prompt; with a UI attached over RPC via `nvim_ui_attach`, it does. **Verified** (`probes/headless_prompt.py`).
 - `nvim_input("<CR>")` dismisses the prompt from RPC. **Verified.** Whether the agent should do that without asking is a design question.
 
 Implication: every skill command should first call `nvim_get_mode`, and refuse (or report) when `blocking` is true instead of hanging. Callers also need a hard timeout.
 
+## Undo and concurrency
+
+All **Verified** (`probes/undo.lua`, `probes/undo_multi.py`, `probes/terminal_mode.py`):
+
+- Edits within one `nvim_exec_lua` request form one undo step. Edits in separate requests form separate steps; `:undojoin` in the second request merges them.
+- An RPC edit while the user is in insert mode joins the user's insert undo step (one `u` undoes both), on the same or another line. The user's cursor is adjusted correctly.
+- An RPC edit to a file buffer while the user is in terminal mode does not move focus and undoes on its own.
+- Keys typed during a running `nvim_exec_lua` are applied after it returns, never mid-request, so checks and edits inside one request are atomic.
+
 ## Open questions
 
-1. How should the agent avoid stomping on the user's in-progress edits? Options: check `mode` is `n`, check `changedtick` before and after, use `nvim_buf_set_text` only on ranges the agent read.
-2. Should edits go through undo-joinable chunks so the user can undo an agent change with one `u`?
-3. How do LSP actions (rename, code actions, hover) behave over RPC when they are async?
-4. Is `nvim_exec_lua` as the single primitive enough, or do we want a small Lua module loaded into the editor (`nvim_exec_lua("require('nvim_agent').op(...)")`)?
-5. Codex and Claude Code skill packaging: confirm both read the same `SKILL.md` frontmatter format (**Recalled** that they do; unverified).
+Questions about stomping on user edits, single-step undo, `nvim_exec_lua` versus a loaded module, and skill packaging are settled in `docs/design.md`.
+
+1. How do LSP actions (rename, code actions, hover) behave over RPC when they are async?
+2. Does an RPC edit to a *different* buffer while the user is in insert mode also join an undo step?
+3. Do other prompts (`confirm()`, swap-file `ATTENTION`, the more-prompt) block requests the way hit-enter does?

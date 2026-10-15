@@ -5,6 +5,7 @@ Design docs and protocol research for nvim-agent. These are working notes for ag
 ## Files
 
 - `protocol-notes.md`: what we know about Neovim's msgpack-rpc API and how it behaves in practice. Read it before designing or changing any part of the skill.
+- `design.md`: the skill's design: container choice, command surface, safety rules, and test plan.
 
 ## Conventions
 
