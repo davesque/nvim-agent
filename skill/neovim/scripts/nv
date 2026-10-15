@@ -1,0 +1,4 @@
+#!/bin/sh
+# Wrapper for nv.lua: runs it with a bare headless nvim (no user config).
+dir=$(cd "$(dirname "$0")" && pwd)
+exec nvim --clean --headless -l "$dir/nv.lua" "$@"
