@@ -63,7 +63,7 @@ In every reload case one `:undo` restores the previous text, so the user can und
 
 Both harnesses follow the Agent Skills standard and load only name and description up front (**Verified (docs)**: [Claude Code](https://code.claude.com/docs/en/skills), [Codex](https://developers.openai.com/codex/skills), [spec](https://agentskills.io/specification)).
 
-- Claude Code looks in `~/.claude/skills/` and `.claude/skills/`; Codex looks in `~/.agents/skills/` and `.agents/skills/`. Install one checkout and symlink it into both. Codex documents following symlinks; Claude Code's docs say nothing about it.
+- Claude Code looks in `~/.claude/skills/` and `.claude/skills/`; Codex looks in `~/.agents/skills/` and `.agents/skills/`. Install one checkout and symlink it into both. Codex documents following symlinks. Claude Code's docs say nothing, but it does follow them: after `make install`, a running Claude Code session listed the `neovim` skill without a restart, and its `Base directory for this skill` was the symlink path, from which `scripts/nv` ran correctly (**Verified**, 2026-10-14). Codex loading is untested (Codex is not installed on the dev machine).
 - Write frontmatter to the strict spec (`name` matching the directory, `description` up to 1024 chars). Claude Code ignores unknown fields; Codex's docs do not say.
 - Do not use `${CLAUDE_SKILL_DIR}` in `SKILL.md`: Codex would pass it to the shell unexpanded. Tell the agent to run `scripts/nv` from the absolute path of the skill's directory, which both harnesses show the model.
 - `SKILL.md` must warn that raw `nvim --remote-*` calls skip every rule above and can freeze the user's editor. That warning is the only defense: a skill cannot force the agent onto the guarded client, which is the strongest argument against this container.
@@ -87,6 +87,5 @@ tests/                          pytest suite
 1. **LSP actions** (hover, rename, code actions) are async. `vim.lsp.buf_request_sync` inside a request blocks the editor for its timeout. Untested; no language server was available.
 2. **Other dialogs.** Hit-enter, W11, and W12 are tested. Swap-file `ATTENTION`, `confirm()`, and the more-prompt are not.
 3. **Does Codex ignore unknown frontmatter** such as Claude Code's `allowed-tools`?
-4. **Does Claude Code follow a symlinked skill directory?**
-5. **Names.** Skill `name` (`neovim` or `nvim`), and whether to rename the repo from `nvim-agent`.
-6. **Buffer edits as a fallback.** If agents often hit `conflict`, consider an opt-in `edit` command that patches the buffer over RPC (one request = one undo step, refused in insert mode; both **Verified (probe)**, `probes/undo.lua`, `undo_multi.py`).
+4. **Names.** Skill `name` (`neovim` or `nvim`), and whether to rename the repo from `nvim-agent`.
+5. **Buffer edits as a fallback.** If agents often hit `conflict`, consider an opt-in `edit` command that patches the buffer over RPC (one request = one undo step, refused in insert mode; both **Verified (probe)**, `probes/undo.lua`, `undo_multi.py`).
