@@ -16,7 +16,7 @@ docs/              Protocol notes and design docs
 probes/            Throwaway scripts used to verify protocol behavior
 ```
 
-Planned, not yet created: a `skill/` directory holding `SKILL.md` plus its helper scripts. When a subdirectory grows its own conventions (e.g. the skill's Lua client), give it its own `AGENTS.md` and a `CLAUDE.md` symlink next to it.
+Planned, not yet created: a `skill/` directory holding `SKILL.md` plus its helper scripts. Give every new subdirectory with its own conventions an `AGENTS.md` and a `CLAUDE.md -> AGENTS.md` symlink.
 
 ## Testing against a live nvim
 
@@ -29,19 +29,9 @@ Planned, not yet created: a `skill/` directory holding `SKILL.md` plus its helpe
 - Any nvim found under `$TMPDIR/nvim.$USER/` may be the user's real editing session. Do not send requests to those sockets unless the user asks.
 - Wrap every RPC call in a timeout (`timeout 3 ...`, or a socket timeout in Python). A hit-enter prompt makes most requests hang indefinitely; see "Blocking behavior" in `docs/protocol-notes.md`.
 
-## Running the probes
-
-```bash
-uv run probes/probe.py .nvim-test.sock          # raw msgpack-rpc tour
-uv run probes/fast.py .nvim-test.sock nvim_get_mode '[]'
-nvim --clean --headless -l probes/client.lua .nvim-test.sock 'return vim.api.nvim_get_mode()'
-```
-
-Python scripts declare dependencies inline (PEP 723), so `uv run` needs no project setup.
-
 ## Conventions
 
 - Prefer the dependency-free client (`nvim -l` + `sockconnect`) for anything the skill ships. Python is fine for probes and tests.
-- Tag claims in docs as **Verified** (observed with a probe) or **Recalled** (from memory, unchecked). Add a probe when you verify something new.
+- Subdirectories have their own `AGENTS.md` (with a `CLAUDE.md` symlink) covering local conventions: `docs/` for claim tagging, `probes/` for how to write and run probes.
 - Commit messages start with a capital letter (`Add ...`, `Fix ...`).
 - No em-dashes in user-facing prose (README, SKILL.md).
