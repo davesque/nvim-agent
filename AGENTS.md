@@ -6,17 +6,20 @@ Do not add `CLAUDE.md` files to this repo. Claude Code (v2.1.277+) reads `AGENTS
 
 ## Status
 
-Early research phase. Read `docs/protocol-notes.md` before designing or changing anything; it records what has been verified against a live nvim and what is still a guess.
+First version implemented in `skill/neovim/`, with tests in `tests/`. Not yet tried end to end in Claude Code or Codex. Read `docs/protocol-notes.md` and `docs/design.md` before changing behavior; they record what has been verified against a live nvim and why each safety rule exists.
 
 ## Layout
 
 ```
 AGENTS.md          Agent instructions (this file)
+Makefile           test, lint, format, check, install, uninstall
 docs/              Protocol notes and design docs
 probes/            Throwaway scripts used to verify protocol behavior
+skill/neovim/      The shipped skill: SKILL.md and scripts/nv
+tests/             pytest suite; each test starts its own headless nvim
 ```
 
-Planned, not yet created: a `skill/` directory holding `SKILL.md` plus its helper scripts. Give every new subdirectory with its own conventions its own `AGENTS.md`.
+Give every new subdirectory with its own conventions its own `AGENTS.md`. `make check` runs lint and tests; the tests never touch running editors (discovery is confined with `NV_SOCKET_DIRS`).
 
 ## Testing against a live nvim
 
