@@ -22,14 +22,14 @@ Every call prints one JSON object. Check `ok`; on failure, `error` holds a code 
 
 ## Commands
 
-| Command | Use it to |
-|---|---|
-| `nv find` | List running instances. |
-| `nv state` | See mode, cwd, current file, cursor, windows, and every open file with its `modified` flag. |
-| `nv read [PATH [START [END]]]` | Read a buffer as it is in the editor, including unsaved changes. Lines are 1-based, inclusive. |
-| `nv reload PATH...` | Make the editor show files you changed on disk. |
-| `nv lua [CODE]` | Run Lua inside Neovim. Pass code as an argument, or on stdin (omit CODE or use `-`). `return` a value to get it back as `value`; printed text comes back as `output`. |
-| `nv ex CMD` | Run an Ex command, for example `nv ex 'edit src/main.py'` or `nv ex 'write'`. Output comes back as `output`. |
+| Command                        | Use it to                                                                                                                                                             |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nv find`                      | List running instances.                                                                                                                                               |
+| `nv state`                     | See mode, cwd, current file, cursor, windows, and every open file with its `modified` flag.                                                                           |
+| `nv read [PATH [START [END]]]` | Read a buffer as it is in the editor, including unsaved changes. Lines are 1-based, inclusive.                                                                        |
+| `nv reload PATH...`            | Make the editor show files you changed on disk.                                                                                                                       |
+| `nv lua [CODE]`                | Run Lua inside Neovim. Pass code as an argument, or on stdin (omit CODE or use `-`). `return` a value to get it back as `value`; printed text comes back as `output`. |
+| `nv ex CMD`                    | Run an Ex command, for example `nv ex 'edit src/main.py'` or `nv ex 'write'`. Output comes back as `output`.                                                          |
 
 Options: `--timeout MS` (default 5000), `--any-mode` (let `lua`/`ex` run when the user is not in normal or terminal mode; only for read-only code).
 
@@ -52,17 +52,24 @@ Do not save the user's buffers (`nv ex write`) unless they ask.
 
 ## Errors
 
-| `error` | Meaning | What to do |
-|---|---|---|
-| `blocked` | The editor is showing a prompt or dialog. | Tell the user and ask them to dismiss it. Do not dismiss it yourself. |
-| `mode` | The user is typing (insert, visual, command line, or mid-command). | Wait and retry later, or tell the user. Reads (`state`, `read`) still work. |
-| `timeout` | No reply in time. Nothing was applied. | Retry once; if it repeats, tell the user the editor seems busy. |
-| `no_instance` / `ambiguous` | No editor found, or several. | Ask the user which editor, or pass `--sock` / `--pane`. |
-| `not_loaded` | `read` on a file that is not open. | Read the file from disk instead. |
-| `lua_error` / `ex_error` | Your code failed. | Fix the code. `message` has the error. |
+| `error`                     | Meaning                                                            | What to do                                                                  |
+| --------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `blocked`                   | The editor is showing a prompt or dialog.                          | Tell the user and ask them to dismiss it. Do not dismiss it yourself.       |
+| `mode`                      | The user is typing (insert, visual, command line, or mid-command). | Wait and retry later, or tell the user. Reads (`state`, `read`) still work. |
+| `timeout`                   | No reply in time. Nothing was applied.                             | Retry once; if it repeats, tell the user the editor seems busy.             |
+| `no_instance` / `ambiguous` | No editor found, or several.                                       | Ask the user which editor, or pass `--sock` / `--pane`.                     |
+| `not_loaded`                | `read` on a file that is not open.                                 | Read the file from disk instead.                                            |
+| `lua_error` / `ex_error`    | Your code failed.                                                  | Fix the code. `message` has the error.                                      |
 
 ## Lua tips
 
 - Code runs in the user's editor with their config and plugins. Keep it short and avoid changing their settings, keymaps, or layout unless asked.
 - Return plain data (tables, strings, numbers). Anything else comes back as a string.
 - Avoid code that waits a long time (sleeps, synchronous LSP requests): the editor freezes until it returns.
+
+## Call stack walkthroughs
+
+For an ordered source walkthrough with highlighted call sites and inline notes,
+read [references/call-stack-annotations.md](references/call-stack-annotations.md).
+It covers temporary extmarks, annotation cleanup, and refreshing the trace after
+source edits.
