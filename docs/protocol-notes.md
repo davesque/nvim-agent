@@ -52,6 +52,7 @@ All **Verified** unless noted:
 | Operator pending (`d` typed) | `no`, not blocking | served |
 | `input()` prompt | `c`, not blocking | served, including `vim.cmd("enew")` |
 | Hit-enter prompt ("Press ENTER") | `r`, **blocking** | **hang until the user dismisses the prompt** |
+| W11/W12 "file changed" confirm dialog | `r?`, **not blocking** | **hang until the user answers** |
 
 - During a hit-enter prompt, `nvim_get_mode`, `nvim_get_api_info`, and `nvim_input` are still answered immediately; `nvim_buf_line_count` and `nvim_exec_lua` are not. **Verified.** `--remote-expr` hangs too, since it goes through `nvim_eval`.
 - A request queued behind the prompt is **dropped if its client disconnects** (raw socket closed: 0/5 ran; `nvim -l` client killed by `timeout`: 0/5 ran) and **run after the prompt clears if the client stays connected** (5/5 ran, and the late response arrived). **Verified** (`probes/dropped.py`). A client that times out must close its connection.
@@ -59,7 +60,18 @@ All **Verified** unless noted:
 - A headless nvim with no UI never shows the prompt; with a UI attached over RPC via `nvim_ui_attach`, it does. **Verified** (`probes/headless_prompt.py`).
 - `nvim_input("<CR>")` dismisses the prompt from RPC. **Verified.** Whether the agent should do that without asking is a design question.
 
-Implication: every skill command should first call `nvim_get_mode`, and refuse (or report) when `blocking` is true instead of hanging. Callers also need a hard timeout.
+- The W11/W12 dialogs come from `:checktime` when a file changed on disk and either `autoread` is off or the buffer has unsaved changes. `blocking` is false during them, yet `nvim_exec_lua` hangs. **Verified** (`probes/reload.py`).
+
+Implication: every skill command should first call `nvim_get_mode`, and refuse (or report) when the mode starts with `r`, not only when `blocking` is true. Callers also need a hard timeout.
+
+## Reloading files changed on disk
+
+All **Verified** (`probes/reload.py`):
+
+- With `autoread` on, nvim does not notice an outside write until something runs `:checktime`.
+- `:checktime` reloads an unchanged buffer silently only if `autoread` is on. With `autoread` off, or with unsaved changes in the buffer, it raises a W11/W12 dialog (see above).
+- `:edit` inside `nvim_buf_call` reloads an unchanged buffer whether `autoread` is on or off, visible or hidden, keeps the cursor, and raises no dialog. On a buffer with unsaved changes it returns an error and leaves the buffer alone.
+- After either kind of reload, one `:undo` restores the previous text.
 
 ## Undo and concurrency
 
@@ -76,4 +88,4 @@ Questions about stomping on user edits, single-step undo, `nvim_exec_lua` versus
 
 1. How do LSP actions (rename, code actions, hover) behave over RPC when they are async?
 2. Does an RPC edit to a *different* buffer while the user is in insert mode also join an undo step?
-3. Do other prompts (`confirm()`, swap-file `ATTENTION`, the more-prompt) block requests the way hit-enter does?
+3. Do the remaining prompts (`confirm()`, swap-file `ATTENTION`, the more-prompt) block requests, and what mode do they report?

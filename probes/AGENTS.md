@@ -15,6 +15,7 @@ Throwaway scripts that verify how Neovim's RPC API behaves. They back the **Veri
 - `terminal_mode.py`: editing a file buffer while the user is in terminal mode. Needs the tmux pane id.
 - `nvim_env.lua`: is `$NVIM` set for `system()` children and `:terminal` jobs (run through `client.lua`).
 - `stale_socket.sh`: which exit paths leave a headless nvim's default socket behind. Starts its own nvims; touches no running editor.
+- `reload.py`: how to make nvim pick up a file changed on disk (`:checktime` vs `:edit`, `autoread` on/off, buffer clean/modified/hidden). Needs the tmux pane id.
 - `headless_prompt.py`: can a headless nvim reproduce the hit-enter prompt (yes, with a UI attached over RPC). Starts its own nvim.
 
 ## Running
