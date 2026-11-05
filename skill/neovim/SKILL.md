@@ -16,6 +16,21 @@ Every call prints one JSON object. Check `ok`; on failure, `error` holds a code 
 
 **Never talk to Neovim any other way.** Raw `nvim --server ... --remote-expr`, `--remote-send`, or your own socket scripts skip the timeout and prompt checks. They can freeze the user's editor and hang your own shell.
 
+## Execution context
+
+Run every `nv` invocation outside the agent's sandbox from the start, including
+`find` and read-only commands. This applies to ChatGPT/Codex and Claude Code.
+The helper connects to the user's existing local editor through host Unix
+sockets; sandbox restrictions can hide those sockets or block connections,
+producing an empty instance list or `no_instance` even when Neovim is running.
+
+Use the harness's supported unsandboxed execution option, subject to its approval
+controls. Do not disable sandboxing globally. If unsandboxed execution is
+unavailable or denied, report that editor access could not be established; do not
+conclude that no editor is running. An earlier sandboxed discovery result is
+inconclusive, so repeat it outside the sandbox before choosing a target or asking
+the user to locate their editor.
+
 ## Which editor
 
 `nv` picks the target in this order: `--sock PATH`, `$NV_SOCK`, `--pane %N`, `$NVIM` (set when you run inside a Neovim terminal), then the only running instance. If several are running you get `ambiguous` with a list. Ask the user which one, or use `--pane` with the tmux pane they name. `nv find` lists every instance with its tmux pane, cwd, current file, and mode.
