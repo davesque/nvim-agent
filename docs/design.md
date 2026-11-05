@@ -1,6 +1,6 @@
 # nvim-agent Skill Design
 
-> **Last updated:** 2026-10-14. Tested against NVIM v0.12.3 on macOS in tmux, with the user's config loaded in the test instance.
+> **Last updated:** 2026-11-04. Original probes used NVIM v0.12.3 on macOS in tmux, with the user's config loaded in the test instance. The incomplete-command regression tests and full test suite pass against NVIM v0.12.6.
 >
 > Tags: **Verified (probe)** = observed with the named script in `probes/`. **Verified (docs)** = read in current vendor docs on 2026-10-14, not yet exercised. **Recalled** = unchecked.
 >
@@ -15,8 +15,8 @@
 | Command | Does | Allowed when |
 |---|---|---|
 | `find [--pane %N]` | List instances: socket, server pid, tmux pane, cwd, current file, mode. | always |
-| `state` | Mode, cwd, current buffer, cursor, visible windows, and every loaded file buffer with its `modified` flag. | not prompting |
-| `read [PATH]` | Lines of a loaded buffer. Useful when the user has unsaved changes the disk copy lacks. | not prompting |
+| `state` | Mode, cwd, current buffer, cursor, visible windows, and every loaded file buffer with its `modified` flag. | not prompting or waiting for a command continuation |
+| `read [PATH]` | Lines of a loaded buffer. Useful when the user has unsaved changes the disk copy lacks. | not prompting or waiting for a command continuation |
 | `reload PATH...` | Reload the named buffers from disk (rules below). | `n`, `nt`, `t` |
 | `lua` | Run Lua from stdin, output captured, returns `{value, output}`. | `n`, `nt`, `t`, or `--any-mode` |
 | `ex` | Run an Ex command via `nvim_exec2(cmd, {output = true})`. | `n`, `nt`, `t`, or `--any-mode` |
@@ -89,3 +89,14 @@ tests/                          pytest suite
 3. **Does Codex ignore unknown frontmatter** such as Claude Code's `allowed-tools`?
 4. **Names.** Skill `name` (`neovim` or `nvim`), and whether to rename the repo from `nvim-agent`.
 5. **Buffer edits as a fallback.** If agents often hit `conflict`, consider an opt-in `edit` command that patches the buffer over RPC (one request = one undo step, refused in insert mode; both **Verified (probe)**, `probes/undo.lua`, `undo_multi.py`).
+
+
+## Incomplete normal commands
+
+**Verified (tests), November 4, 2026, Neovim 0.12.6:** commands such as `t`,
+`f`, `g`, and `r` wait for another key while reporting normal mode with
+`blocking=true`. Identity and payload requests then stall. Discovery and command
+preflight both report these instances as blocked, without finishing or canceling
+the user's command. `--any-mode` does not override this safety check. The existing
+mode-prefix check remains necessary for file-change dialogs, which can report
+`blocking=false`. Tests cover prompt and incomplete-command cases separately.

@@ -89,3 +89,13 @@ def test_ambiguous_instances(editor: Editor, workdir: Path):
         assert len(r.data["instances"]) == 2
     finally:
         other.close()
+
+
+def test_find_reports_incomplete_normal_command_as_blocked(editor: Editor, workdir: Path):
+    editor.rpc.call("nvim_input", "t")
+    r = run_nv("find", "--timeout", "700", env=scan(workdir))
+    assert r.data["ok"]
+    [instance] = r.data["instances"]
+    assert instance["blocked"] is True
+    assert instance["mode"] == "n"
+    assert r.elapsed < 0.6

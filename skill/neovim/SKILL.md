@@ -54,7 +54,7 @@ Do not save the user's buffers (`nv ex write`) unless they ask.
 
 | `error`                     | Meaning                                                            | What to do                                                                  |
 | --------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| `blocked`                   | The editor is showing a prompt or dialog.                          | Tell the user and ask them to dismiss it. Do not dismiss it yourself.       |
+| `blocked`                   | The editor is showing a prompt or waiting for another key in a command. | Ask the user to finish or cancel the pending command, or dismiss the prompt. Do not do it yourself. |
 | `mode`                      | The user is typing (insert, visual, command line, or mid-command). | Wait and retry later, or tell the user. Reads (`state`, `read`) still work. |
 | `timeout`                   | No reply in time. Nothing was applied.                             | Retry once; if it repeats, tell the user the editor seems busy.             |
 | `no_instance` / `ambiguous` | No editor found, or several.                                       | Ask the user which editor, or pass `--sock` / `--pane`.                     |

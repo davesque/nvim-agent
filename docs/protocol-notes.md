@@ -1,8 +1,12 @@
 # Neovim RPC Protocol Notes
 
-> **Last updated:** 2026-10-14
+> **Last updated:** 2026-11-04
 >
 > Tested against NVIM v0.12.3 (API level 14) on macOS, inside tmux. Every claim below marked **Verified** was observed with the scripts in `probes/`. Claims marked **Recalled** come from memory of the Neovim docs and still need checking against `:help api` / `:help RPC`.
+
+The incomplete-command regression tests and full skill suite were also run against
+Neovim 0.12.6 on November 4, 2026. Earlier probe observations retain their original
+version context.
 
 ## Wire protocol
 
@@ -50,6 +54,7 @@ All **Verified** unless noted:
 |---|---|---|
 | Normal mode | `n`, not blocking | served |
 | Operator pending (`d` typed) | `no`, not blocking | served |
+| Incomplete normal command (`t`, `f`, `g`, or `r` typed) | `n`, **blocking** | **hang until the user finishes or cancels the command** |
 | `input()` prompt | `c`, not blocking | served, including `vim.cmd("enew")` |
 | Hit-enter prompt ("Press ENTER") | `r`, **blocking** | **hang until the user dismisses the prompt** |
 | W11/W12 "file changed" confirm dialog | `r?`, **not blocking** | **hang until the user answers** |
@@ -62,7 +67,9 @@ All **Verified** unless noted:
 
 - The W11/W12 dialogs come from `:checktime` when a file changed on disk and either `autoread` is off or the buffer has unsaved changes. `blocking` is false during them, yet `nvim_exec_lua` hangs. **Verified** (`probes/reload.py`).
 
-Implication: every skill command should first call `nvim_get_mode`, and refuse (or report) when the mode starts with `r`, not only when `blocking` is true. Callers also need a hard timeout.
+Implication: every skill command should first call `nvim_get_mode`, and refuse (or report) when `blocking` is true **or** the mode starts with `r`. Normal mode alone does not mean the editor can serve requests. Callers also need a hard timeout.
+
+The incomplete-command behavior was **Verified** against Neovim 0.12.6 on November 4, 2026, with the isolated regression cases in `tests/test_safety.py`. Instance discovery must also recognize this state before requesting identity through `nvim_exec_lua`; see `tests/test_find.py`.
 
 ## Reloading files changed on disk
 

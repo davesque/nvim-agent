@@ -5,6 +5,7 @@ The safety rules from docs/design.md: prompts, modes, timeouts, output capture.
 import os
 from pathlib import Path
 
+import pytest
 from conftest import Editor, Rpc, run_nv
 
 
@@ -125,3 +126,32 @@ def test_nvim_env_var_selects_target(editor: Editor):
     r = run_nv("state", env={"NVIM": editor.sock, "NV_SOCKET_DIRS": os.devnull})
     assert r.data["ok"]
     assert r.data["socket"] == editor.sock
+
+
+@pytest.mark.parametrize("keys", ["t", "f", "g", "r"])
+def test_incomplete_normal_command_reports_blocked_without_timeout(editor: Editor, keys: str):
+    editor.rpc.call("nvim_input", keys)
+    mode = editor.rpc.call("nvim_get_mode")
+    assert mode["blocking"] is True
+    result = editor.nv("state", "--timeout", "700")
+    assert result.data["error"] == "blocked"
+    assert result.data["mode"] == mode["mode"]
+    assert result.elapsed < 0.6
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["read"],
+        ["lua", "vim.g.nv_marker = 1"],
+        ["--any-mode", "lua", "vim.g.nv_marker = 1"],
+        ["ex", "let g:nv_marker = 1"],
+        ["reload", "x"],
+    ],
+)
+def test_incomplete_normal_command_blocks_all_requests(editor: Editor, command: list[str]):
+    editor.rpc.call("nvim_input", "t")
+    result = editor.nv(*command, "--timeout", "700")
+    assert result.data["error"] == "blocked"
+    editor.rpc.call("nvim_input", "<Esc>")
+    assert editor.rpc.lua("return vim.g.nv_marker") is None

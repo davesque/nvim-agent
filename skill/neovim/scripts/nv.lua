@@ -133,10 +133,11 @@ end
 -- while a request runs are applied only after it returns.
 local GATE = [[
 local function gate(strict)
-  local m = vim.api.nvim_get_mode().mode
-  if m:sub(1, 1) == 'r' then
+  local mode = vim.api.nvim_get_mode()
+  local m = mode.mode
+  if mode.blocking or m:sub(1, 1) == 'r' then
     return { ok = false, error = 'blocked', mode = m,
-      message = 'the editor is showing a prompt; ask the user to dismiss it' }
+      message = 'the editor is waiting for input or showing a prompt; ask the user to finish or cancel it' }
   end
   if strict and m ~= 'n' and m ~= 'nt' and m ~= 't' then
     return { ok = false, error = 'mode', mode = m,
@@ -394,7 +395,7 @@ local function pane_for_pid(pid)
   end
 end
 
--- Probe one socket: mode first (answered even while a prompt is up), then
+-- Probe one socket: mode first (answered even while input is blocked), then
 -- identity only if the editor is not prompting.
 local function probe(path)
   local ch = connect(path)
@@ -407,7 +408,7 @@ local function probe(path)
     return nil
   end
   local entry = { socket = path, mode = mode.mode }
-  if mode.mode:sub(1, 1) == 'r' then
+  if mode.blocking or mode.mode:sub(1, 1) == 'r' then
     entry.blocked = true
     -- Default sockets are nvim.<pid>.0; plugin sockets often end in .<pid>.0.
     entry.pid = tonumber(vim.fs.basename(path):match('%.(%d+)%.0$'))
@@ -526,12 +527,13 @@ if not ch then
 end
 
 -- Preflight. nvim_get_mode is answered even while a prompt is up; most other
--- requests would hang. Any mode starting with 'r' is a prompt. The W11/W12
+-- requests would hang. An incomplete normal command can also set blocking=true.
+-- Any mode starting with 'r' is a prompt. The W11/W12
 -- "file changed" dialogs report 'r?' with blocking = false, so checking
 -- `blocking` alone is not enough.
 local mode = request(ch, 'nvim_get_mode')
-if mode and mode.mode:sub(1, 1) == 'r' then
-  fail('blocked', 'the editor is showing a prompt; ask the user to dismiss it', { mode = mode.mode })
+if mode and (mode.blocking or mode.mode:sub(1, 1) == 'r') then
+  fail('blocked', 'the editor is waiting for input or showing a prompt; ask the user to finish or cancel it', { mode = mode.mode })
 end
 
 local res, rerr = request(ch, 'nvim_exec_lua', PAYLOAD[command], args)
